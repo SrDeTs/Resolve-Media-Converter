@@ -2,7 +2,7 @@
 
 Utilitario Linux em Qt/QML para deixar videos mais compativeis com o DaVinci Resolve no Linux sem reencodar o video.
 
-## O que o app faz
+## O que o app fazs
 
 - Mantem o stream de video intacto com `-c:v copy`
 - Converte somente a primeira faixa de audio para FLAC
