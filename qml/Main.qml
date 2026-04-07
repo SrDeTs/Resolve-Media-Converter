@@ -24,6 +24,7 @@ ApplicationWindow {
     readonly property color accentText: "#0b1209"
     readonly property color error: "#da726a"
     readonly property color warning: "#d8ba6b"
+    readonly property int controlHeight: 38
 
     function addDroppedUrls(urls) {
         const paths = []
@@ -62,9 +63,11 @@ ApplicationWindow {
 
     FileDialog {
         id: fileDialog
-        title: "Selecionar videos"
+        title: conversionManager.selectionMode === 2 ? "Selecionar audios" : "Selecionar videos"
         fileMode: FileDialog.OpenFiles
-        nameFilters: ["Videos (*.mp4 *.mkv *.mov *.webm *.avi)"]
+        nameFilters: conversionManager.selectionMode === 2
+                     ? ["Audios (*.wav *.mp3 *.aac *.m4a *.flac *.opus *.ogg *.aif *.aiff)"]
+                     : ["Videos (*.mp4 *.mkv *.mov *.webm *.avi)"]
         onAccepted: conversionManager.addFiles(selectedFiles.map(url => decodeURIComponent(url.toString().substring(7))))
     }
 
@@ -106,22 +109,44 @@ ApplicationWindow {
                 anchors.margins: 16
                 spacing: 16
 
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 4
+                    spacing: 14
 
-                    Label {
-                        text: "Resolve Media Converter"
-                        color: textPrimary
-                        font.pixelSize: 28
-                        font.weight: Font.DemiBold
+                    Rectangle {
+                        Layout.preferredWidth: 56
+                        Layout.preferredHeight: 56
+                        radius: 12
+                        color: panelSoft
+                        border.color: borderColor
+
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            source: "qrc:/qt/qml/ResolveMediaConverter/Logo.png"
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
+                        }
                     }
 
-                    Label {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        text: "Mantem o video intacto e converte somente o audio para FLAC."
-                        color: textMuted
-                        wrapMode: Text.Wrap
+                        spacing: 4
+
+                        Label {
+                            text: "Resolve Media Converter"
+                            color: textPrimary
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: "Mantem o video intacto e converte somente o audio para FLAC."
+                            color: textMuted
+                            wrapMode: Text.Wrap
+                        }
                     }
                 }
 
@@ -183,7 +208,7 @@ ApplicationWindow {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 132
+            Layout.preferredHeight: 150
             radius: 16
             color: panel
             border.color: borderColor
@@ -212,7 +237,7 @@ ApplicationWindow {
                         radius: 12
                         color: panelSoft
                         border.color: borderColor
-                        implicitWidth: 190
+                        implicitWidth: 286
                         implicitHeight: 40
 
                         RowLayout {
@@ -221,7 +246,7 @@ ApplicationWindow {
                             spacing: 4
 
                             Repeater {
-                                model: ["Arquivos", "Pasta"]
+                                model: ["Arquivos", "Pasta", "Audio Solo"]
 
                                 delegate: Button {
                                     id: modeButton
@@ -257,7 +282,9 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     text: conversionManager.selectionMode === 0
                           ? "Adicione um ou mais videos. Tambem funciona com drag and drop."
-                          : "Selecione uma pasta para importar os videos suportados."
+                          : conversionManager.selectionMode === 1
+                            ? "Selecione uma pasta para importar os videos suportados."
+                            : "Adicione arquivos de audio para converter direto para FLAC."
                     color: textMuted
                     wrapMode: Text.Wrap
                 }
@@ -266,107 +293,129 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     spacing: 10
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
                     Button {
                         id: selectButton
-                        text: conversionManager.selectionMode === 0 ? "Selecionar arquivos" : "Selecionar pasta"
+                        text: conversionManager.selectionMode === 1 ? "Selecionar pasta" : "Selecionar arquivos"
+                        implicitHeight: controlHeight
                         onClicked: {
-                            if (conversionManager.selectionMode === 0) {
-                                fileDialog.open()
-                            } else {
+                            if (conversionManager.selectionMode === 1) {
                                 folderDialog.open()
+                            } else {
+                                fileDialog.open()
                             }
                         }
 
-                        background: Rectangle {
-                            radius: 10
-                            color: accent
-                        }
+                            background: Rectangle {
+                                radius: 10
+                                color: accent
+                            }
 
-                        contentItem: Text {
-                            text: selectButton.text
-                            color: accentText
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            font.pixelSize: 14
-                            font.weight: Font.DemiBold
-                        }
-                    }
-
-                    Button {
-                        id: clearButton
-                        text: "Limpar fila"
-                        enabled: !conversionManager.running
-                        onClicked: conversionManager.clearQueue()
-
-                        background: Rectangle {
-                            radius: 10
-                            color: clearButton.enabled ? panelSoft : "#1a1f24"
-                            border.color: borderColor
-                            border.width: 1
-                        }
-
-                        contentItem: Text {
-                            text: clearButton.text
-                            color: clearButton.enabled ? textPrimary : "#67747c"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            font.pixelSize: 14
-                        }
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                    CheckBox {
-                        id: saveNextToSource
-                        checked: conversionManager.saveNextToSource
-                        onToggled: conversionManager.saveNextToSource = checked
-
-                        indicator: Rectangle {
-                            implicitWidth: 18
-                            implicitHeight: 18
-                            radius: 4
-                            border.color: saveNextToSource.checked ? accent : borderColor
-                            border.width: 1
-                            color: saveNextToSource.checked ? accent : panelSoft
-
-                            Label {
-                                anchors.centerIn: parent
-                                text: saveNextToSource.checked ? "✓" : ""
+                            contentItem: Text {
+                                text: selectButton.text
                                 color: accentText
-                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 14
                                 font.weight: Font.DemiBold
                             }
                         }
 
-                        contentItem: Text {
-                            text: "Salvar ao lado do original"
-                            color: textPrimary
-                            leftPadding: 28
-                            verticalAlignment: Text.AlignVCenter
+                        Button {
+                            id: clearButton
+                            text: "Limpar fila"
+                            enabled: !conversionManager.running
+                            implicitHeight: controlHeight
+                            onClicked: conversionManager.clearQueue()
+
+                            background: Rectangle {
+                                radius: 10
+                                color: clearButton.enabled ? panelSoft : "#1a1f24"
+                                border.color: borderColor
+                                border.width: 1
+                            }
+
+                            contentItem: Text {
+                                text: clearButton.text
+                                color: clearButton.enabled ? textPrimary : "#67747c"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 14
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
                         }
                     }
 
-                    Button {
-                        id: outputButton
-                        text: "Pasta de saida"
-                        enabled: !conversionManager.saveNextToSource
-                        onClicked: outputFolderDialog.open()
+                    RowLayout {
+                        spacing: 10
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
 
-                        background: Rectangle {
-                            radius: 10
-                            color: outputButton.enabled ? panelSoft : "#1a1f24"
-                            border.color: borderColor
-                            border.width: 1
+                        Button {
+                            id: saveNextToSourceToggle
+                            checkable: true
+                            checked: conversionManager.saveNextToSource
+                            implicitHeight: controlHeight
+                            onToggled: conversionManager.saveNextToSource = checked
+
+                            background: Item {}
+
+                            contentItem: RowLayout {
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignVCenter
+                                    implicitWidth: 18
+                                    implicitHeight: 18
+                                    radius: 4
+                                    border.color: saveNextToSourceToggle.checked ? accent : borderColor
+                                    border.width: 1
+                                    color: saveNextToSourceToggle.checked ? accent : panelSoft
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: saveNextToSourceToggle.checked ? "✓" : ""
+                                        color: accentText
+                                        font.pixelSize: 12
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
+
+                                Label {
+                                    Layout.alignment: Qt.AlignVCenter
+                                    text: "Salvar ao lado do original"
+                                    color: textPrimary
+                                    font.pixelSize: 14
+                                }
+                            }
                         }
 
-                        contentItem: Text {
-                            text: outputButton.text
-                            color: outputButton.enabled ? textPrimary : "#67747c"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            font.pixelSize: 14
+                        Button {
+                            id: outputButton
+                            text: "Pasta de saida"
+                            enabled: !conversionManager.saveNextToSource
+                            implicitHeight: controlHeight
+                            onClicked: outputFolderDialog.open()
+
+                            background: Rectangle {
+                                radius: 10
+                                color: outputButton.enabled ? panelSoft : "#1a1f24"
+                                border.color: borderColor
+                                border.width: 1
+                            }
+
+                            contentItem: Text {
+                                text: outputButton.text
+                                color: outputButton.enabled ? textPrimary : "#67747c"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 14
+                            }
                         }
                     }
                 }
@@ -388,51 +437,66 @@ ApplicationWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 12
 
-                    Label {
-                        text: "Fila"
-                        color: textPrimary
-                        font.pixelSize: 20
-                        font.weight: Font.DemiBold
-                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                    Label {
-                        text: "O video e copiado sem reencodar. Apenas o audio vai para FLAC."
-                        color: textMuted
-                        Layout.leftMargin: 12
+                        Label {
+                            text: "Fila"
+                            color: textPrimary
+                            font.pixelSize: 20
+                            font.weight: Font.DemiBold
+                        }
+
+                        Label {
+                            text: "O video e copiado sem reencodar. Apenas o audio vai para FLAC."
+                            color: textMuted
+                        }
                     }
 
                     Item {
                         Layout.fillWidth: true
                     }
 
-                    CheckBox {
-                        id: overwriteExisting
+                    Button {
+                        id: overwriteExistingToggle
+                        checkable: true
                         checked: conversionManager.overwriteExisting
+                        implicitHeight: controlHeight
+                        Layout.alignment: Qt.AlignVCenter
                         onToggled: conversionManager.overwriteExisting = checked
 
-                        indicator: Rectangle {
-                            implicitWidth: 18
-                            implicitHeight: 18
-                            radius: 4
-                            border.color: overwriteExisting.checked ? accent : borderColor
-                            border.width: 1
-                            color: overwriteExisting.checked ? accent : panelSoft
+                        background: Item {}
+
+                        contentItem: RowLayout {
+                            spacing: 10
+
+                            Rectangle {
+                                Layout.alignment: Qt.AlignVCenter
+                                implicitWidth: 18
+                                implicitHeight: 18
+                                radius: 4
+                                border.color: overwriteExistingToggle.checked ? accent : borderColor
+                                border.width: 1
+                                color: overwriteExistingToggle.checked ? accent : panelSoft
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: overwriteExistingToggle.checked ? "✓" : ""
+                                    color: accentText
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                            }
 
                             Label {
-                                anchors.centerIn: parent
-                                text: overwriteExisting.checked ? "✓" : ""
-                                color: accentText
-                                font.pixelSize: 12
-                                font.weight: Font.DemiBold
+                                Layout.alignment: Qt.AlignVCenter
+                                text: "Sobrescrever existentes"
+                                color: textPrimary
+                                font.pixelSize: 14
                             }
-                        }
-
-                        contentItem: Text {
-                            text: "Sobrescrever existentes"
-                            color: textPrimary
-                            leftPadding: 28
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
                 }
@@ -582,6 +646,7 @@ ApplicationWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 12
 
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -600,9 +665,16 @@ ApplicationWindow {
                         }
                     }
 
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
                     Button {
                         id: convertButton
                         text: conversionManager.running ? "Cancelar" : "Converter"
+                        implicitHeight: controlHeight
+                        implicitWidth: 120
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         onClicked: {
                             if (conversionManager.running) {
                                 conversionManager.cancelCurrent()

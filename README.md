@@ -23,6 +23,13 @@ cmake -S . -B build
 cmake --build build
 ```
 
+## Packaging
+
+- `.deb` e `.rpm`: `cpack -G DEB` e `cpack -G RPM` dentro de `build/`
+- `.AppImage`: base em `packaging/appimage/build-appimage.sh`
+- `pacman`: base em `packaging/arch/PKGBUILD`
+- `flatpak`: base em `packaging/flatpak/io.github.srdets.ResolveMediaConverter.yml`
+
 ## Estrutura
 
 - `src/core`: backend C++ com fila, worker e modelos

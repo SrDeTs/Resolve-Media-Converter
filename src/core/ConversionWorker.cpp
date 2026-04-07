@@ -26,21 +26,26 @@ void ConversionWorker::process(const ConversionWorker::JobRequest &job)
                       probe.videoCodec,
                       probe.audioCodec,
                       probe.alreadyCompatible,
-                      probe.ok ? QStringLiteral("Analise concluida") : probe.error);
+                      probe.ok
+                          ? (probe.audioStreamCount > 1
+                                 ? QStringLiteral("Analise concluida; multiplas faixas de audio detectadas")
+                                 : QStringLiteral("Analise concluida"))
+                          : probe.error);
 
     if (!probe.ok) {
         emit finished(job.index, false, false, probe.error);
         return;
     }
 
-    if (!probe.hasVideo) {
-        emit finished(job.index, false, false, QStringLiteral("Arquivo sem stream de video"));
-        return;
-    }
-
     if (!probe.hasAudio) {
         emit finished(job.index, false, false, QStringLiteral("Arquivo sem stream de audio"));
         return;
+    }
+
+    if (probe.audioStreamCount > 1) {
+        emit logMessage(QStringLiteral("Aviso: %1 tem %2 faixas de audio; somente a primeira sera convertida")
+                            .arg(QFileInfo(job.sourcePath).fileName())
+                            .arg(probe.audioStreamCount));
     }
 
     QString errorMessage;
@@ -50,10 +55,16 @@ void ConversionWorker::process(const ConversionWorker::JobRequest &job)
         return;
     }
 
-    const bool warning = probe.alreadyCompatible;
-    const QString resultMessage = warning
-        ? QStringLiteral("Audio ja estava em FLAC; arquivo final remuxado")
-        : QStringLiteral("Video copiado e audio convertido para FLAC");
+    const bool warning = probe.alreadyCompatible || probe.audioStreamCount > 1;
+    const QString resultMessage = probe.hasVideo
+        ? (probe.audioStreamCount > 1
+               ? QStringLiteral("Multiplas faixas de audio detectadas; somente a primeira foi convertida")
+               : (probe.alreadyCompatible ? QStringLiteral("Audio ja estava em FLAC; arquivo final remuxado")
+                                          : QStringLiteral("Video copiado e audio convertido para FLAC")))
+        : (probe.audioStreamCount > 1
+               ? QStringLiteral("Multiplas faixas de audio detectadas; somente a primeira foi convertida")
+               : (probe.alreadyCompatible ? QStringLiteral("Audio ja estava em FLAC; arquivo final gerado sem reencodar")
+                                          : QStringLiteral("Audio convertido para FLAC")));
     emit finished(job.index, true, warning, resultMessage);
 }
 
@@ -108,9 +119,12 @@ ConversionWorker::ProbeResult ConversionWorker::runProbe(const JobRequest &job) 
         if (codecType == QStringLiteral("video") && !result.hasVideo) {
             result.hasVideo = true;
             result.videoCodec = codecName;
-        } else if (codecType == QStringLiteral("audio") && !result.hasAudio) {
-            result.hasAudio = true;
-            result.audioCodec = codecName;
+        } else if (codecType == QStringLiteral("audio")) {
+            ++result.audioStreamCount;
+            if (!result.hasAudio) {
+                result.hasAudio = true;
+                result.audioCodec = codecName;
+            }
         }
     }
 
@@ -136,13 +150,17 @@ bool ConversionWorker::runFfmpeg(const JobRequest &job, const ProbeResult &probe
 
     arguments << (job.overwriteExisting ? QStringLiteral("-y") : QStringLiteral("-n"));
     arguments << QStringLiteral("-i") << job.sourcePath;
-    arguments << QStringLiteral("-map") << QStringLiteral("0:v");
     arguments << QStringLiteral("-map") << QStringLiteral("0:a:0");
-    arguments << QStringLiteral("-map") << QStringLiteral("0:s?");
     arguments << QStringLiteral("-map_metadata") << QStringLiteral("0");
-    arguments << QStringLiteral("-c:v") << QStringLiteral("copy");
-    arguments << QStringLiteral("-c:s") << QStringLiteral("copy");
     arguments << QStringLiteral("-c:a") << QStringLiteral("flac");
+
+    if (probe.hasVideo) {
+        arguments << QStringLiteral("-map") << QStringLiteral("0:v");
+        arguments << QStringLiteral("-map") << QStringLiteral("0:s?");
+        arguments << QStringLiteral("-c:v") << QStringLiteral("copy");
+        arguments << QStringLiteral("-c:s") << QStringLiteral("copy");
+    }
+
     arguments << job.outputPath;
 
     if (probe.alreadyCompatible) {
@@ -153,7 +171,9 @@ bool ConversionWorker::runFfmpeg(const JobRequest &job, const ProbeResult &probe
             arguments[audioCodecIndex + 1] = QStringLiteral("copy");
         }
     } else {
-        emit logMessage(QStringLiteral("Convertendo audio para FLAC e copiando video sem reencodar"));
+        emit logMessage(probe.hasVideo
+                            ? QStringLiteral("Convertendo audio para FLAC e copiando video sem reencodar")
+                            : QStringLiteral("Convertendo audio solo para FLAC"));
     }
 
     ffmpeg.start(job.ffmpegPath, arguments);

@@ -41,6 +41,7 @@ private:
         bool hasVideo = false;
         bool hasAudio = false;
         bool alreadyCompatible = false;
+        int audioStreamCount = 0;
         QString videoCodec;
         QString audioCodec;
         QString error;
