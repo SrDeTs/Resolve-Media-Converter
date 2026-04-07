@@ -25,6 +25,7 @@ ApplicationWindow {
     readonly property color error: "#da726a"
     readonly property color warning: "#d8ba6b"
     readonly property int controlHeight: 38
+    property string currentErrorMessage: ""
 
     function addDroppedUrls(urls) {
         const paths = []
@@ -89,6 +90,183 @@ ApplicationWindow {
     DropArea {
         anchors.fill: parent
         onDropped: event => addDroppedUrls(event.urls)
+    }
+
+    Connections {
+        target: conversionManager
+
+        function onErrorOccurred(message) {
+            currentErrorMessage = message
+            errorDialog.open()
+        }
+    }
+
+    Dialog {
+        id: errorDialog
+        width: Math.min(window.width - 48, 620)
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        anchors.centerIn: Overlay.overlay
+        padding: 0
+
+        background: Rectangle {
+            radius: 16
+            color: panel
+            border.color: borderColor
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 0
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 68
+                color: "transparent"
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 18
+                    anchors.rightMargin: 18
+                    spacing: 12
+
+                    Rectangle {
+                        width: 34
+                        height: 34
+                        radius: 10
+                        color: Qt.rgba(error.r, error.g, error.b, 0.16)
+                        border.color: Qt.rgba(error.r, error.g, error.b, 0.4)
+
+                        Label {
+                            anchors.centerIn: parent
+                            text: "!"
+                            color: error
+                            font.pixelSize: 18
+                            font.weight: Font.DemiBold
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Label {
+                            text: "Erro"
+                            color: textPrimary
+                            font.pixelSize: 20
+                            font.weight: Font.DemiBold
+                        }
+
+                        Label {
+                            text: "O aplicativo encontrou um problema."
+                            color: textMuted
+                            font.pixelSize: 13
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: borderColor
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 188
+                color: "transparent"
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 18
+                    clip: true
+
+                    TextArea {
+                        id: errorTextArea
+                        text: currentErrorMessage
+                        wrapMode: Text.WrapAnywhere
+                        readOnly: true
+                        selectByMouse: true
+                        color: textPrimary
+                        selectionColor: accent
+                        selectedTextColor: accentText
+                        background: Rectangle {
+                            radius: 12
+                            color: panelSoft
+                            border.color: borderColor
+                            border.width: 1
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: borderColor
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 76
+                color: "transparent"
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 18
+                    anchors.rightMargin: 18
+                    spacing: 10
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Button {
+                        text: "Copiar"
+                        implicitHeight: controlHeight
+                        onClicked: clipboardHelper.copyText(currentErrorMessage)
+
+                        background: Rectangle {
+                            radius: 10
+                            color: panelSoft
+                            border.color: borderColor
+                            border.width: 1
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textPrimary
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
+                        }
+                    }
+
+                    Button {
+                        text: "OK"
+                        implicitHeight: controlHeight
+                        onClicked: errorDialog.close()
+
+                        background: Rectangle {
+                            radius: 10
+                            color: accent
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: accentText
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+            }
+        }
     }
 
     ColumnLayout {
@@ -356,42 +534,73 @@ ApplicationWindow {
                         spacing: 10
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
 
-                        Button {
-                            id: saveNextToSourceToggle
-                            checkable: true
-                            checked: conversionManager.saveNextToSource
+                        CheckBox {
+                            id: removeSuffixToggle
                             implicitHeight: controlHeight
-                            onToggled: conversionManager.saveNextToSource = checked
+                            checked: conversionManager.removeOutputSuffix
+                            spacing: 10
+                            onToggled: conversionManager.removeOutputSuffix = checked
 
-                            background: Item {}
-
-                            contentItem: RowLayout {
-                                spacing: 10
-
-                                Rectangle {
-                                    Layout.alignment: Qt.AlignVCenter
-                                    implicitWidth: 18
-                                    implicitHeight: 18
-                                    radius: 4
-                                    border.color: saveNextToSourceToggle.checked ? accent : borderColor
-                                    border.width: 1
-                                    color: saveNextToSourceToggle.checked ? accent : panelSoft
-
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: saveNextToSourceToggle.checked ? "✓" : ""
-                                        color: accentText
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                    }
-                                }
+                            indicator: Rectangle {
+                                x: 0
+                                y: (removeSuffixToggle.height - height) / 2
+                                implicitWidth: 18
+                                implicitHeight: 18
+                                radius: 4
+                                border.color: removeSuffixToggle.checked ? accent : borderColor
+                                border.width: 1
+                                color: removeSuffixToggle.checked ? accent : panelSoft
 
                                 Label {
-                                    Layout.alignment: Qt.AlignVCenter
-                                    text: "Salvar ao lado do original"
-                                    color: textPrimary
-                                    font.pixelSize: 14
+                                    anchors.centerIn: parent
+                                    text: removeSuffixToggle.checked ? "✓" : ""
+                                    color: accentText
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
                                 }
+                            }
+
+                            contentItem: Label {
+                                text: "Remover sufixo de saida"
+                                color: textPrimary
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: removeSuffixToggle.indicator.width + removeSuffixToggle.spacing
+                            }
+                        }
+
+                        CheckBox {
+                            id: saveNextToSourceToggle
+                            implicitHeight: controlHeight
+                            checked: conversionManager.saveNextToSource
+                            spacing: 10
+                            onToggled: conversionManager.saveNextToSource = checked
+
+                            indicator: Rectangle {
+                                x: 0
+                                y: (saveNextToSourceToggle.height - height) / 2
+                                implicitWidth: 18
+                                implicitHeight: 18
+                                radius: 4
+                                border.color: saveNextToSourceToggle.checked ? accent : borderColor
+                                border.width: 1
+                                color: saveNextToSourceToggle.checked ? accent : panelSoft
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: saveNextToSourceToggle.checked ? "✓" : ""
+                                    color: accentText
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+
+                            contentItem: Label {
+                                text: "Salvar ao lado do original"
+                                color: textPrimary
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: saveNextToSourceToggle.indicator.width + saveNextToSourceToggle.spacing
                             }
                         }
 
@@ -460,45 +669,6 @@ ApplicationWindow {
                         Layout.fillWidth: true
                     }
 
-                    Button {
-                        id: overwriteExistingToggle
-                        checkable: true
-                        checked: conversionManager.overwriteExisting
-                        implicitHeight: controlHeight
-                        Layout.alignment: Qt.AlignVCenter
-                        onToggled: conversionManager.overwriteExisting = checked
-
-                        background: Item {}
-
-                        contentItem: RowLayout {
-                            spacing: 10
-
-                            Rectangle {
-                                Layout.alignment: Qt.AlignVCenter
-                                implicitWidth: 18
-                                implicitHeight: 18
-                                radius: 4
-                                border.color: overwriteExistingToggle.checked ? accent : borderColor
-                                border.width: 1
-                                color: overwriteExistingToggle.checked ? accent : panelSoft
-
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: overwriteExistingToggle.checked ? "✓" : ""
-                                    color: accentText
-                                    font.pixelSize: 12
-                                    font.weight: Font.DemiBold
-                                }
-                            }
-
-                            Label {
-                                Layout.alignment: Qt.AlignVCenter
-                                text: "Sobrescrever existentes"
-                                color: textPrimary
-                                font.pixelSize: 14
-                            }
-                        }
-                    }
                 }
 
                 ListView {
@@ -585,10 +755,11 @@ ApplicationWindow {
                             }
 
                             Label {
-                                text: message
-                                color: statusLabel === "Erro" ? error : textMuted
+                                text: statusLabel === "Erro" ? "" : message
+                                color: textMuted
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
+                                visible: text.length > 0
                             }
                         }
                     }

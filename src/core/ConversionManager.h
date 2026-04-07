@@ -18,7 +18,7 @@ class ConversionManager : public QObject
     Q_PROPERTY(int completedItems READ completedItems NOTIFY queueStatsChanged)
     Q_PROPERTY(QString outputDirectory READ outputDirectory WRITE setOutputDirectory NOTIFY outputDirectoryChanged)
     Q_PROPERTY(bool saveNextToSource READ saveNextToSource WRITE setSaveNextToSource NOTIFY saveNextToSourceChanged)
-    Q_PROPERTY(bool overwriteExisting READ overwriteExisting WRITE setOverwriteExisting NOTIFY overwriteExistingChanged)
+    Q_PROPERTY(bool removeOutputSuffix READ removeOutputSuffix WRITE setRemoveOutputSuffix NOTIFY removeOutputSuffixChanged)
     Q_PROPERTY(int selectionMode READ selectionMode WRITE setSelectionMode NOTIFY selectionModeChanged)
 
 public:
@@ -46,8 +46,8 @@ public:
     bool saveNextToSource() const;
     void setSaveNextToSource(bool enabled);
 
-    bool overwriteExisting() const;
-    void setOverwriteExisting(bool enabled);
+    bool removeOutputSuffix() const;
+    void setRemoveOutputSuffix(bool enabled);
 
     bool verboseLogging() const;
     void setVerboseLogging(bool enabled);
@@ -67,8 +67,9 @@ signals:
     void queueStatsChanged();
     void outputDirectoryChanged();
     void saveNextToSourceChanged();
-    void overwriteExistingChanged();
+    void removeOutputSuffixChanged();
     void selectionModeChanged();
+    void errorOccurred(const QString &message);
     void convertJobRequested(const ConversionWorker::JobRequest &job);
     void cancelRequested();
 
@@ -86,8 +87,11 @@ private slots:
 private:
     static bool isSupportedVideoFile(const QString &path);
     static bool isSupportedAudioFile(const QString &path);
+    static QString summarizeError(const QString &message);
     bool isSupportedInputFile(const QString &path) const;
     QString buildOutputPath(const QString &sourcePath) const;
+    void refreshOutputPaths();
+    void reportError(const QString &message);
     void log(const QString &message);
     void startNextPending();
     void updateStats();
@@ -99,7 +103,7 @@ private:
     QString m_outputDirectory;
     bool m_running = false;
     bool m_saveNextToSource = true;
-    bool m_overwriteExisting = false;
+    bool m_removeOutputSuffix = false;
     bool m_verboseLogging = false;
     int m_selectionMode = FilesMode;
 };

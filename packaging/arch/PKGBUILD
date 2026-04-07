@@ -1,5 +1,5 @@
 pkgname=resolve-media-converter
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Converte audio para FLAC sem reencodar o video, com foco no DaVinci Resolve no Linux"
 arch=('x86_64')

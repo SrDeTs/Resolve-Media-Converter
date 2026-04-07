@@ -4,6 +4,7 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QLoggingCategory>
+#include <QStringView>
 
 ConversionManager::ConversionManager(QObject *parent)
     : QObject(parent)
@@ -87,6 +88,7 @@ void ConversionManager::setOutputDirectory(const QString &outputDirectory)
 
     m_outputDirectory = outputDirectory;
     emit outputDirectoryChanged();
+    refreshOutputPaths();
 }
 
 bool ConversionManager::saveNextToSource() const
@@ -102,21 +104,23 @@ void ConversionManager::setSaveNextToSource(bool enabled)
 
     m_saveNextToSource = enabled;
     emit saveNextToSourceChanged();
+    refreshOutputPaths();
 }
 
-bool ConversionManager::overwriteExisting() const
+bool ConversionManager::removeOutputSuffix() const
 {
-    return m_overwriteExisting;
+    return m_removeOutputSuffix;
 }
 
-void ConversionManager::setOverwriteExisting(bool enabled)
+void ConversionManager::setRemoveOutputSuffix(bool enabled)
 {
-    if (m_overwriteExisting == enabled) {
+    if (m_removeOutputSuffix == enabled) {
         return;
     }
 
-    m_overwriteExisting = enabled;
-    emit overwriteExistingChanged();
+    m_removeOutputSuffix = enabled;
+    emit removeOutputSuffixChanged();
+    refreshOutputPaths();
 }
 
 bool ConversionManager::verboseLogging() const
@@ -173,7 +177,7 @@ void ConversionManager::addFolder(const QString &folderPath, bool includeSubfold
 {
     const QFileInfo info(folderPath);
     if (!info.exists() || !info.isDir()) {
-        log(QStringLiteral("Pasta invalida: %1").arg(folderPath));
+        reportError(QStringLiteral("Pasta invalida: %1").arg(folderPath));
         return;
     }
 
@@ -188,7 +192,7 @@ void ConversionManager::addFolder(const QString &folderPath, bool includeSubfold
     }
 
     if (files.isEmpty()) {
-        log(QStringLiteral("Nenhum video suportado encontrado na pasta"));
+        reportError(QStringLiteral("Nenhum video suportado encontrado na pasta"));
         return;
     }
 
@@ -198,7 +202,7 @@ void ConversionManager::addFolder(const QString &folderPath, bool includeSubfold
 void ConversionManager::clearQueue()
 {
     if (m_running) {
-        log(QStringLiteral("Nao e possivel limpar a fila durante a conversao"));
+        reportError(QStringLiteral("Nao e possivel limpar a fila durante a conversao"));
         return;
     }
 
@@ -214,7 +218,7 @@ void ConversionManager::startConversion()
     }
 
     if (m_queueModel.pendingCount() == 0) {
-        log(QStringLiteral("Nenhum item pendente para converter"));
+        reportError(QStringLiteral("Nenhum item pendente para converter"));
         return;
     }
 
@@ -259,8 +263,16 @@ void ConversionManager::handleWorkerFinished(int index, bool success, bool warni
         log(QStringLiteral("%1 concluido").arg(m_queueModel.itemAt(index).fileName));
     } else {
         const bool cancelled = message.contains(QStringLiteral("cancelada"), Qt::CaseInsensitive);
-        m_queueModel.setProcessingState(index, cancelled ? ConversionItem::Status::Skipped : ConversionItem::Status::Error, message);
+        const QString queueMessage = cancelled
+            ? message
+            : summarizeError(message);
+        m_queueModel.setProcessingState(index,
+                                        cancelled ? ConversionItem::Status::Skipped : ConversionItem::Status::Error,
+                                        queueMessage);
         log(QStringLiteral("%1 falhou: %2").arg(m_queueModel.itemAt(index).fileName, message));
+        if (!cancelled) {
+            reportError(message);
+        }
     }
 
     updateStats();
@@ -298,6 +310,25 @@ bool ConversionManager::isSupportedAudioFile(const QString &path)
     return supported.contains(suffix);
 }
 
+QString ConversionManager::summarizeError(const QString &message)
+{
+    const QStringList lines = message.split('\n', Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) {
+            continue;
+        }
+
+        QString summary = trimmed;
+        if (summary.size() > 110) {
+            summary = summary.left(107) + QStringLiteral("...");
+        }
+        return summary;
+    }
+
+    return QStringLiteral("Falha na conversao. Veja os detalhes no popup.");
+}
+
 bool ConversionManager::isSupportedInputFile(const QString &path) const
 {
     if (m_selectionMode == AudioMode) {
@@ -311,14 +342,48 @@ QString ConversionManager::buildOutputPath(const QString &sourcePath) const
 {
     const QFileInfo info(sourcePath);
     const QString baseName = info.completeBaseName();
-    const QString outputName = (m_selectionMode == AudioMode || isSupportedAudioFile(sourcePath))
-        ? QStringLiteral("%1_resolve.flac").arg(baseName)
-        : QStringLiteral("%1_resolve.flacfix.mkv").arg(baseName);
-    if (m_saveNextToSource || m_outputDirectory.isEmpty()) {
-        return info.dir().filePath(outputName);
+    const bool audioOnly = m_selectionMode == AudioMode || isSupportedAudioFile(sourcePath);
+    const QString preferredOutputName = audioOnly
+        ? (m_removeOutputSuffix
+               ? QStringLiteral("%1.flac").arg(baseName)
+               : QStringLiteral("%1_resolve.flac").arg(baseName))
+        : (m_removeOutputSuffix
+               ? QStringLiteral("%1.mkv").arg(baseName)
+               : QStringLiteral("%1_resolve.flacfix.mkv").arg(baseName));
+
+    const QDir targetDir = (m_saveNextToSource || m_outputDirectory.isEmpty())
+        ? info.dir()
+        : QDir(m_outputDirectory);
+    QString outputPath = targetDir.filePath(preferredOutputName);
+
+    const QString normalizedSource = info.absoluteFilePath();
+    const QString normalizedOutput = QFileInfo(outputPath).absoluteFilePath();
+    if (normalizedOutput == normalizedSource) {
+        const QString fallbackName = audioOnly
+            ? QStringLiteral("%1_resolve.flac").arg(baseName)
+            : QStringLiteral("%1_resolve.flacfix.mkv").arg(baseName);
+        outputPath = targetDir.filePath(fallbackName);
     }
 
-    return QDir(m_outputDirectory).filePath(outputName);
+    return outputPath;
+}
+
+void ConversionManager::refreshOutputPaths()
+{
+    for (int i = 0; i < m_queueModel.count(); ++i) {
+        const auto item = m_queueModel.itemAt(i);
+        if (item.status == ConversionItem::Status::Converting) {
+            continue;
+        }
+
+        m_queueModel.setOutputPath(i, buildOutputPath(item.sourcePath));
+    }
+}
+
+void ConversionManager::reportError(const QString &message)
+{
+    log(message);
+    emit errorOccurred(message);
 }
 
 void ConversionManager::log(const QString &message)
@@ -349,7 +414,7 @@ void ConversionManager::startNextPending()
     job.index = index;
     job.sourcePath = item.sourcePath;
     job.outputPath = outputPath;
-    job.overwriteExisting = m_overwriteExisting;
+    job.overwriteExisting = false;
     job.ffmpegPath = QStringLiteral("ffmpeg");
     job.ffprobePath = QStringLiteral("ffprobe");
 

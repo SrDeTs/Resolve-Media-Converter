@@ -3,8 +3,10 @@
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QClipboard>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QObject>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -15,6 +17,21 @@ namespace {
 
 constexpr auto kAppName = "Resolve Media Converter";
 constexpr auto kAppVersion = "0.1.0";
+
+class ClipboardHelper : public QObject
+{
+    Q_OBJECT
+
+public:
+    using QObject::QObject;
+
+    Q_INVOKABLE void copyText(const QString &text) const
+    {
+        if (auto *clipboard = QGuiApplication::clipboard()) {
+            clipboard->setText(text);
+        }
+    }
+};
 
 int printHelp()
 {
@@ -78,10 +95,12 @@ int main(int argc, char *argv[])
     qmlRegisterUncreatableType<ConversionManager>("ResolveMediaConverter", 1, 0, "SelectionMode", QStringLiteral("Enums only"));
 
     ConversionManager manager;
+    ClipboardHelper clipboardHelper;
     manager.setVerboseLogging(parser.isSet(verboseOption));
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("conversionManager"), &manager);
+    engine.rootContext()->setContextProperty(QStringLiteral("clipboardHelper"), &clipboardHelper);
 
     const QUrl url(QStringLiteral("qrc:/qt/qml/ResolveMediaConverter/qml/Main.qml"));
     QObject::connect(
@@ -94,3 +113,5 @@ int main(int argc, char *argv[])
 
     return app.exec();
 }
+
+#include "main.moc"
