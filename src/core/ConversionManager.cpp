@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QStringView>
@@ -417,6 +418,7 @@ void ConversionManager::startNextPending()
     job.overwriteExisting = false;
     job.ffmpegPath = QStringLiteral("ffmpeg");
     job.ffprobePath = QStringLiteral("ffprobe");
+    job.useHostTools = QFile::exists(QStringLiteral("/.flatpak-info"));
 
     emit convertJobRequested(job);
 }

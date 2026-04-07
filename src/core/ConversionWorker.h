@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QStringList>
 
+class QProcess;
+
 class ConversionWorker : public QObject
 {
     Q_OBJECT
@@ -15,6 +17,7 @@ public:
         bool overwriteExisting = false;
         QString ffmpegPath;
         QString ffprobePath;
+        bool useHostTools = false;
     };
 
     explicit ConversionWorker(QObject *parent = nullptr);
@@ -50,6 +53,10 @@ private:
 
     ProbeResult runProbe(const JobRequest &job) const;
     bool runFfmpeg(const JobRequest &job, const ProbeResult &probe, QString *errorMessage);
+    static void startProcess(QProcess &process,
+                             const QString &program,
+                             const QStringList &arguments,
+                             bool useHostTools);
     int progressFromLine(const QString &line, qint64 durationMs) const;
 
     bool m_cancelRequested = false;

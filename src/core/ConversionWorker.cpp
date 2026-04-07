@@ -88,7 +88,7 @@ ConversionWorker::ProbeResult ConversionWorker::runProbe(const JobRequest &job) 
         job.sourcePath
     };
 
-    probe.start(job.ffprobePath, arguments);
+    startProcess(probe, job.ffprobePath, arguments, job.useHostTools);
     if (!probe.waitForStarted()) {
         result.error = QStringLiteral("Nao foi possivel iniciar ffprobe");
         return result;
@@ -176,7 +176,7 @@ bool ConversionWorker::runFfmpeg(const JobRequest &job, const ProbeResult &probe
                             : QStringLiteral("Convertendo audio solo para FLAC"));
     }
 
-    ffmpeg.start(job.ffmpegPath, arguments);
+    startProcess(ffmpeg, job.ffmpegPath, arguments, job.useHostTools);
     if (!ffmpeg.waitForStarted()) {
         *errorMessage = QStringLiteral("Nao foi possivel iniciar ffmpeg");
         return false;
@@ -220,6 +220,21 @@ bool ConversionWorker::runFfmpeg(const JobRequest &job, const ProbeResult &probe
 
     emit logMessage(QStringLiteral("Arquivo finalizado: %1").arg(QFileInfo(job.outputPath).fileName()));
     return true;
+}
+
+void ConversionWorker::startProcess(QProcess &process,
+                                    const QString &program,
+                                    const QStringList &arguments,
+                                    bool useHostTools)
+{
+    if (useHostTools) {
+        QStringList hostArguments{QStringLiteral("--host"), program};
+        hostArguments.append(arguments);
+        process.start(QStringLiteral("flatpak-spawn"), hostArguments);
+        return;
+    }
+
+    process.start(program, arguments);
 }
 
 int ConversionWorker::progressFromLine(const QString &line, qint64 durationMs) const
