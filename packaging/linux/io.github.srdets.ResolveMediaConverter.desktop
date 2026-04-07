@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Resolve Media Converter
+Comment=Converte audio para FLAC sem reencodar o video
+Exec=resolve-media-converter %F
+Icon=io.github.srdets.ResolveMediaConverter
+Terminal=false
+Categories=AudioVideo;Video;Audio;
+Keywords=Resolve;DaVinci;FFmpeg;FLAC;Audio;Video;
+MimeType=video/mp4;video/x-matroska;video/quicktime;video/webm;video/x-msvideo;audio/x-wav;audio/mpeg;audio/aac;audio/mp4;audio/flac;audio/ogg;
+StartupNotify=true

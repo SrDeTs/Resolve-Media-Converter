@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.srdets.ResolveMediaConverter</id>
+  <name>Resolve Media Converter</name>
+  <summary>Converte audio para FLAC sem reencodar o video</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Resolve Media Converter corrige incompatibilidades de audio para uso no
+      DaVinci Resolve no Linux, preservando o video original e convertendo apenas
+      a faixa de audio para FLAC.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.srdets.ResolveMediaConverter.desktop</launchable>
+  <provides>
+    <binary>resolve-media-converter</binary>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Video</category>
+  </categories>
+</component>

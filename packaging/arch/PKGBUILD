@@ -1,0 +1,22 @@
+pkgname=resolve-media-converter
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Converte audio para FLAC sem reencodar o video, com foco no DaVinci Resolve no Linux"
+arch=('x86_64')
+url="https://github.com/SrDeTs/Resolve-Media-Converter"
+license=('MIT')
+depends=('ffmpeg' 'qt6-base' 'qt6-declarative' 'qt6-5compat')
+makedepends=('cmake' 'ninja')
+source=("${pkgname}-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cmake -S "${srcdir}/${pkgname}-${pkgver}" -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
+}
+
+package() {
+  DESTDIR="${pkgdir}" cmake --install build
+}
